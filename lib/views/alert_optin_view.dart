@@ -103,38 +103,77 @@ class _AlertOptInViewState extends State<AlertOptInView> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: size.height * 0.08,
-            child: Center(
-              child: SizedBox(
-                // Landscape buttons are tighter (-20% horizontal,
-                // -10% vertical padding) per the artwork layout.
-                width: isLandscape
-                    ? size.width * 0.336
-                    : size.width * 0.78,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _CapsuleAction(
-                      label: 'Accept',
-                      primary: true,
-                      verticalPadding: isLandscape ? 14.4 : 16,
-                      onTap: _busy ? null : _onAccept,
-                    ),
-                    const SizedBox(height: 12),
-                    _CapsuleAction(
-                      label: 'Skip',
-                      primary: false,
-                      verticalPadding: isLandscape ? 10.8 : 12,
-                      onTap: _busy ? null : _onSkip,
-                    ),
-                  ],
+          // Landscape: both buttons inline at the Skip baseline,
+          // each ≈18% of the screen width (much smaller than the
+          // previous stacked layout).  Portrait keeps the Accept-
+          // over-Skip column.
+          if (isLandscape)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: size.height * 0.07,
+              child: Center(
+                child: SizedBox(
+                  width: size.width * 0.42,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SizedBox(
+                        width: size.width * 0.18,
+                        child: _CapsuleAction(
+                          label: 'Accept',
+                          primary: true,
+                          fontSize: 15,
+                          verticalPadding: 10,
+                          onTap: _busy ? null : _onAccept,
+                        ),
+                      ),
+                      SizedBox(
+                        width: size.width * 0.18,
+                        child: _CapsuleAction(
+                          label: 'Skip',
+                          primary: false,
+                          fontSize: 13,
+                          verticalPadding: 8,
+                          onTap: _busy ? null : _onSkip,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: size.height * 0.08,
+              child: Center(
+                child: SizedBox(
+                  width: size.width * 0.78,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CapsuleAction(
+                        label: 'Accept',
+                        primary: true,
+                        fontSize: 19,
+                        verticalPadding: 16,
+                        onTap: _busy ? null : _onAccept,
+                      ),
+                      const SizedBox(height: 12),
+                      _CapsuleAction(
+                        label: 'Skip',
+                        primary: false,
+                        fontSize: 16,
+                        verticalPadding: 12,
+                        onTap: _busy ? null : _onSkip,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -145,11 +184,13 @@ class _CapsuleAction extends StatefulWidget {
   final String label;
   final bool primary;
   final double verticalPadding;
+  final double fontSize;
   final VoidCallback? onTap;
   const _CapsuleAction({
     required this.label,
     required this.primary,
     required this.verticalPadding,
+    required this.fontSize,
     required this.onTap,
   });
 
@@ -250,9 +291,9 @@ class _CapsuleActionState extends State<_CapsuleAction>
                     color: widget.primary
                         ? const Color(0xFFFFF5D9)
                         : Colors.white.withValues(alpha: 0.85),
-                    fontSize: widget.primary ? 19 : 16,
+                    fontSize: widget.fontSize,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: widget.primary ? 1.6 : 1.2,
+                    letterSpacing: widget.primary ? 1.4 : 1.0,
                     shadows: const [
                       Shadow(color: Colors.black87, blurRadius: 6),
                     ],
