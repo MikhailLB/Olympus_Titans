@@ -331,22 +331,29 @@ class _BootOrchestratorState extends State<BootOrchestrator> {
                       Text(
                         'Loading$dots',
                         style: TextStyle(
-                          color: const Color(0xFFC9A84C),
+                          color: const Color(0xFFFFE7A1),
                           fontSize: isLandscape ? 18 : 20,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 2,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2.5,
                           shadows: const [
                             Shadow(
-                              color: Colors.black54,
+                              color: Colors.black,
                               blurRadius: 8,
+                              offset: Offset(0, 1),
+                            ),
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 12,
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Horizontal progress bar — fills smoothly while
-                      // gray-flow runs, hits 100% only via _finalizeFill
-                      // right before pushReplacement (per UX spec).
+                      // Horizontal progress bar — grows STRICTLY left
+                      // to right via AnimatedPositioned(left: 0, width:
+                      // maxWidth * progress).  No symmetric gradient,
+                      // no centered alignment.  Hits 100% only inside
+                      // _finalizeFill() right before pushReplacement.
                       Container(
                         height: isLandscape ? 12 : 14,
                         decoration: BoxDecoration(
@@ -361,33 +368,41 @@ class _BootOrchestratorState extends State<BootOrchestrator> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(7),
                           child: LayoutBuilder(
-                            builder: (ctx, constraints) => Stack(
-                              children: [
-                                AnimatedContainer(
-                                  duration:
-                                      const Duration(milliseconds: 220),
-                                  curve: Curves.easeOut,
-                                  width: constraints.maxWidth * _progress,
-                                  height: double.infinity,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFFC9A84C),
-                                        Color(0xFFFFF176),
-                                        Color(0xFFC9A84C),
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFC9A84C)
-                                            .withValues(alpha: 0.8),
-                                        blurRadius: 6,
+                            builder: (ctx, constraints) {
+                              final fillWidth =
+                                  constraints.maxWidth * _progress;
+                              return Stack(
+                                clipBehavior: Clip.hardEdge,
+                                children: [
+                                  AnimatedPositioned(
+                                    duration:
+                                        const Duration(milliseconds: 220),
+                                    curve: Curves.easeOut,
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: fillWidth,
+                                    child: const DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        // Strictly left → right gradient.
+                                        // Brighter highlight on the
+                                        // moving right edge.
+                                        gradient: LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Color(0xFFB8902F),
+                                            Color(0xFFC9A84C),
+                                            Color(0xFFFFE7A1),
+                                          ],
+                                          stops: [0.0, 0.6, 1.0],
+                                        ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
