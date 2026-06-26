@@ -17,7 +17,7 @@ void main() {
     'gcd_path': '/install_data/v4.0/',
     'chrome_fragment': '132.0.6834.163',
     'webkit_fragment': '537.36',
-    // Pending: provided later by the operator.
+    // Drop the real values in here when re-encoding, then revert.
     'attribution_dev_key': '',
     'messaging_project_id': '',
   };

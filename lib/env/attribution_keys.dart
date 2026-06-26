@@ -19,11 +19,12 @@ import '../cipher/scramble.dart';
 // ─────────────────────────────────────────────────────────────
 
 const List<int> _devKeyCipher = <int>[
-  // TODO: paste forged bytes once AppsFlyer issues the dev key.
+  102, 3, 143, 234, 149, 105, 31, 19, 151, 60, 225, 214,
+  58, 22, 43, 53, 132, 231, 76, 20, 191, 131,
 ];
 
 const List<int> _projectIdCipher = <int>[
-  // TODO: paste forged bytes once Firebase project is wired.
+  4, 89, 221, 142, 254, 43, 25, 74, 245, 71, 149, 128, 79,
 ];
 
 const List<int> _gcdHostCipher = <int>[
