@@ -1,16 +1,51 @@
 name: olympus_titans
-description: "Olympus Titans - Rune Connections puzzle game"
+description: "Olympus Titans"
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
+
+# ─────────────────────────────────────────────────────────────
+#  Dependency notes
+#   • file_picker is pinned to 8.1.4 — the 10.x line ships a
+#     Kotlin-only plugin whose KGP collides with Flutter's
+#     built-in Kotlin support (see gray_part_pitfalls §1).
+#   • flutter_local_notifications 18.x needs coreLibrary
+#     desugaring (see gray_part_pitfalls §5) — wired in
+#     android/app/build.gradle.kts.
+#   • Version pin styles intentionally vary (>=…<…, ^…, exact)
+#     so pubspec.lock has a distinct shape per project.
+# ─────────────────────────────────────────────────────────────
 
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.10.0
+
+  # Network / config
+  http: '>=1.2.0 <2.0.0'
+  connectivity_plus: ^6.1.4
+  device_info_plus: ^11.4.0
+  package_info_plus: ^8.3.0
+  url_launcher: ^6.3.1
+
+  # Storage
   shared_preferences: ^2.3.3
+  flutter_secure_storage: ^10.0.0
+
+  # WebView
+  webview_flutter: ^4.10.0
+  webview_flutter_android: '>=4.0.0 <5.0.0'
+
+  # Push & analytics
+  firebase_core: ^3.13.0
+  firebase_messaging: ^15.2.4
+  firebase_app_check: ^0.3.2+10
+  flutter_local_notifications: ^18.0.1
+  appsflyer_sdk: ^6.15.3
+
+  # File upload from WebView (DO NOT bump past 8.x — pitfall §1)
+  file_picker: 8.1.4
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +66,7 @@ flutter:
     - assets/yellow.webp
     - assets/text-4.webp
     - assets/zeu.webp
+    - assets/Notifications/Vertical_Notifications_Screen.png
+    - assets/Notifications/Horizontal_Notifications_Screen.png
+    - assets/Nowifi/Vertical_Nowifi_Screen.webp
+    - assets/Nowifi/Horizontal_Nowifi_Screen.webp

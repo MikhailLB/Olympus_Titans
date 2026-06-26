@@ -1,93 +1,65 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/splash_screen.dart';
-import 'screens/menu_screen.dart';
-import 'screens/level_select_screen.dart';
-import 'screens/game_screen.dart';
-import 'screens/webview_screen.dart';
 
-void main() {
+import 'core/alert_channel.dart';
+import 'core/attribution_agent.dart';
+import 'core/backend_dispatcher.dart';
+import 'core/local_vault.dart';
+import 'core/mobile_http_agent.dart';
+import 'core/net_sensor.dart';
+import 'shell.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Orientation is NOT locked here; SplashScreen locks to portrait before navigating away.
-  // This allows the loading screen to render in whichever orientation the device is held.
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
-  );
-  runApp(const OlympusTitansApp());
-}
 
-class OlympusTitansApp extends StatelessWidget {
-  const OlympusTitansApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Olympus Titans',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFC9A84C),
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF050E1A),
-        fontFamily: 'sans-serif',
-      ),
-      initialRoute: '/',
-      onGenerateRoute: (settings) {
-        switch (settings.name) {
-          case '/':
-            return _fadeRoute(const SplashScreen(), settings);
-          case '/menu':
-            return _fadeRoute(const MenuScreen(), settings);
-          case '/levels':
-            return _fadeRoute(const LevelSelectScreen(), settings);
-          case '/game':
-            final index = settings.arguments as int? ?? 0;
-            return _slideRoute(GameScreen(levelIndex: index), settings);
-          case '/webview':
-            final args = settings.arguments as Map<String, String>?;
-            return _slideRoute(
-              WebViewScreen(
-                url: args?['url'] ?? 'https://olympustittans.com',
-                title: args?['title'] ?? '',
-              ),
-              settings,
-            );
-          default:
-            return _fadeRoute(const MenuScreen(), settings);
-        }
-      },
+  // Firebase + AppCheck initialise opportunistically — without
+  // google-services.json the call throws and is swallowed.
+  // AlertChannel re-tries Firebase.initializeApp() with the same
+  // try/catch shape, so push notifications remain disabled but
+  // the rest of the app stays functional.
+  try {
+    await Firebase.initializeApp();
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode
+          ? AndroidProvider.debug
+          : AndroidProvider.playIntegrity,
     );
+  } catch (_) {
+    if (kDebugMode) debugPrint('[main] Firebase not configured — push disabled');
   }
 
-  static PageRoute _fadeRoute(Widget page, RouteSettings settings) {
-    return PageRouteBuilder(
-      settings: settings,
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) =>
-          FadeTransition(opacity: animation, child: child),
-      transitionDuration: const Duration(milliseconds: 400),
-    );
-  }
+  // Boot screens (loading + opt-in) must adapt to both orientations.
+  // The white game re-locks to portrait when MenuScreen is reached.
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.black,
+  ));
 
-  static PageRoute _slideRoute(Widget page, RouteSettings settings) {
-    return PageRouteBuilder(
-      settings: settings,
-      pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, animation, __, child) {
-        final tween = Tween(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).chain(CurveTween(curve: Curves.easeOutCubic));
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
-      },
-      transitionDuration: const Duration(milliseconds: 350),
-    );
-  }
+  await mobileHttpAgent.prepare();
+
+  final vault = LocalVault();
+  await vault.warmUp();
+
+  final netSensor = NetSensor();
+  final attribution = AttributionAgent();
+  final dispatcher = BackendDispatcher(vault);
+  final alerts = AlertChannel(vault);
+
+  runApp(TitansShellApp(
+    vault: vault,
+    netSensor: netSensor,
+    attribution: attribution,
+    dispatcher: dispatcher,
+    alerts: alerts,
+  ));
 }
