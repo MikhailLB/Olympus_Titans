@@ -1,0 +1,33 @@
+name: olympus_titans
+description: "Olympus Titans - Rune Connections puzzle game"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.10.0
+  shared_preferences: ^2.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/Horizontal_LoadingScreen.png
+    - assets/Vertical_LoadingScreen.png
+    - assets/Icon25.webp
+    - assets/blue.webp
+    - assets/green.webp
+    - assets/orange.webp
+    - assets/pink.webp
+    - assets/viol.webp
+    - assets/yellow.webp
+    - assets/text-4.webp
+    - assets/zeu.webp
