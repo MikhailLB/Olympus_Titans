@@ -106,22 +106,28 @@ class _AlertOptInViewState extends State<AlertOptInView> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: isLandscape ? size.height * 0.08 : size.height * 0.08,
+            bottom: size.height * 0.08,
             child: Center(
               child: SizedBox(
-                width: isLandscape ? size.width * 0.42 : size.width * 0.78,
+                // Landscape buttons are tighter (-20% horizontal,
+                // -10% vertical padding) per the artwork layout.
+                width: isLandscape
+                    ? size.width * 0.336
+                    : size.width * 0.78,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _CapsuleAction(
                       label: 'Accept',
                       primary: true,
+                      verticalPadding: isLandscape ? 14.4 : 16,
                       onTap: _busy ? null : _onAccept,
                     ),
                     const SizedBox(height: 12),
                     _CapsuleAction(
                       label: 'Skip',
                       primary: false,
+                      verticalPadding: isLandscape ? 10.8 : 12,
                       onTap: _busy ? null : _onSkip,
                     ),
                   ],
@@ -138,10 +144,12 @@ class _AlertOptInViewState extends State<AlertOptInView> {
 class _CapsuleAction extends StatefulWidget {
   final String label;
   final bool primary;
+  final double verticalPadding;
   final VoidCallback? onTap;
   const _CapsuleAction({
     required this.label,
     required this.primary,
+    required this.verticalPadding,
     required this.onTap,
   });
 
@@ -199,7 +207,7 @@ class _CapsuleActionState extends State<_CapsuleAction>
                     Color(0xFF3D3D55),
                   ];
             return Container(
-              padding: EdgeInsets.symmetric(vertical: widget.primary ? 16 : 12),
+              padding: EdgeInsets.symmetric(vertical: widget.verticalPadding),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: palette,
