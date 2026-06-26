@@ -62,24 +62,23 @@ class BootOrchestrator extends StatefulWidget {
   State<BootOrchestrator> createState() => _BootOrchestratorState();
 }
 
-class _BootOrchestratorState extends State<BootOrchestrator>
-    with SingleTickerProviderStateMixin {
-  double _progress = 0.05;
+class _BootOrchestratorState extends State<BootOrchestrator> {
+  // Visible bar fill (0..1).  Walks smoothly up to [_kSlowCap] while
+  // gray-flow work is in flight, then jumps to 1.0 only at the very
+  // moment before we navigate away (per UX spec).
+  static const double _kSlowCap = 0.88;
+  static const Duration _kSlowTotal = Duration(milliseconds: 3600);
+
+  double _progress = 0.0;
   bool _navigated = false;
   int _dotPhase = 0;
   Timer? _dotsTicker;
-  late AnimationController _haloCtrl;
+  Timer? _fillTicker;
 
   @override
   void initState() {
     super.initState();
-    _haloCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat();
-    _dotsTicker = Timer.periodic(const Duration(milliseconds: 480), (_) {
-      if (mounted) setState(() => _dotPhase = (_dotPhase + 1) % 4);
-    });
+    _startCosmetics();
     _kickoff();
   }
 
@@ -87,13 +86,38 @@ class _BootOrchestratorState extends State<BootOrchestrator>
   void dispose() {
     widget.alerts.onTokenRotated = null;
     _dotsTicker?.cancel();
-    _haloCtrl.dispose();
+    _fillTicker?.cancel();
     super.dispose();
   }
 
-  void _bumpProgress(double target) {
+  /// Drives the "Loading…" dots and the slow fill toward [_kSlowCap].
+  /// The fill never exceeds the cap on its own — only [_finalizeFill]
+  /// (called right before navigation) takes it to 1.0.
+  void _startCosmetics() {
+    _dotsTicker = Timer.periodic(const Duration(milliseconds: 460), (_) {
+      if (mounted) setState(() => _dotPhase = (_dotPhase + 1) % 4);
+    });
+
+    const stepMs = 60;
+    final steps = _kSlowTotal.inMilliseconds ~/ stepMs;
+    _fillTicker = Timer.periodic(const Duration(milliseconds: stepMs), (t) {
+      if (!mounted) return;
+      final fraction = t.tick / steps;
+      final next = (fraction * _kSlowCap).clamp(0.0, _kSlowCap);
+      if (_progress < _kSlowCap) {
+        setState(() => _progress = next);
+      }
+      if (t.tick >= steps) t.cancel();
+    });
+  }
+
+  /// Called right before any push-replacement to flash the bar
+  /// to 100% and give the eye a brief beat to register the change.
+  Future<void> _finalizeFill() async {
+    _fillTicker?.cancel();
     if (!mounted) return;
-    setState(() => _progress = target.clamp(0.05, 1.0));
+    setState(() => _progress = 1.0);
+    await Future<void>.delayed(const Duration(milliseconds: 320));
   }
 
   Future<void> _kickoff() async {
@@ -104,11 +128,10 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     final mode = widget.vault.currentMode();
     switch (mode) {
       case LaunchMode.arcade:
-        _bumpProgress(0.65);
-        await Future<void>.delayed(const Duration(milliseconds: 350));
-        _bumpProgress(1.0);
-        await Future<void>.delayed(const Duration(milliseconds: 220));
-        _jumpToArcade();
+        // Small artificial pause so the bar visibly advances even
+        // when nothing else needs to happen.
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        await _jumpToArcade();
         return;
       case LaunchMode.portal:
         await _flowReturningOnline();
@@ -120,14 +143,12 @@ class _BootOrchestratorState extends State<BootOrchestrator>
   }
 
   Future<void> _flowFirstRun() async {
-    _bumpProgress(0.18);
     final live = await widget.netSensor.hasLink();
     if (!live) {
-      _jumpToOffline();
+      await _jumpToOffline();
       return;
     }
 
-    _bumpProgress(0.35);
     await widget.attribution.ignite();
     await Future.wait([
       widget.attribution.awaitAttribution(
@@ -136,7 +157,6 @@ class _BootOrchestratorState extends State<BootOrchestrator>
       widget.attribution.awaitDeepLink(),
     ]);
 
-    _bumpProgress(0.7);
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.describeForBackend(
       locale: locale,
@@ -144,41 +164,31 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     );
     final verdict = await widget.dispatcher.requestVerdict(body);
 
-    _bumpProgress(0.95);
-
     if (verdict.hasDestination) {
       await widget.vault.recordMode(LaunchMode.portal);
-      _bumpProgress(1.0);
-      await Future<void>.delayed(const Duration(milliseconds: 220));
-      _jumpToPortal(verdict.destination!);
+      await _jumpToPortal(verdict.destination!);
       return;
     }
 
     await widget.vault.recordMode(LaunchMode.arcade);
-    _bumpProgress(1.0);
-    await Future<void>.delayed(const Duration(milliseconds: 220));
-    _jumpToArcade();
+    await _jumpToArcade();
   }
 
   Future<void> _flowReturningOnline() async {
-    _bumpProgress(0.2);
     final live = await widget.netSensor.hasLink();
     if (!live) {
-      _jumpToOffline();
+      await _jumpToOffline();
       return;
     }
 
     final pendingPush = await widget.vault.popPushUrl();
     if (pendingPush != null && pendingPush.isNotEmpty) {
-      _bumpProgress(1.0);
-      await Future<void>.delayed(const Duration(milliseconds: 220));
-      _jumpToPortal(pendingPush);
+      await _jumpToPortal(pendingPush);
       return;
     }
 
     final cached = await widget.dispatcher.cachedDestination();
 
-    _bumpProgress(0.5);
     await widget.attribution.ignite();
     await Future.wait([
       widget.attribution.awaitAttribution(
@@ -187,7 +197,6 @@ class _BootOrchestratorState extends State<BootOrchestrator>
       widget.attribution.awaitDeepLink(),
     ]);
 
-    _bumpProgress(0.8);
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.describeForBackend(
       locale: locale,
@@ -195,18 +204,15 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     );
     final verdict = await widget.dispatcher.requestVerdict(body);
 
-    _bumpProgress(1.0);
-    await Future<void>.delayed(const Duration(milliseconds: 220));
-
     if (verdict.hasDestination) {
-      _jumpToPortal(verdict.destination!);
+      await _jumpToPortal(verdict.destination!);
       return;
     }
     if (cached != null && cached.isNotEmpty) {
-      _jumpToPortal(cached);
+      await _jumpToPortal(cached);
       return;
     }
-    _jumpToOffline();
+    await _jumpToOffline();
   }
 
   void _replayBackend(String newToken) async {
@@ -225,6 +231,7 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     _navigated = true;
     await portal.loadLibrary();
     await portal.warmPortal();
+    await _finalizeFill();
     if (!mounted) return;
 
     if (widget.vault.shouldShowOptIn()) {
@@ -250,9 +257,10 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     }
   }
 
-  void _jumpToArcade() async {
+  Future<void> _jumpToArcade() async {
     if (_navigated) return;
     _navigated = true;
+    await _finalizeFill();
     await SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -263,9 +271,11 @@ class _BootOrchestratorState extends State<BootOrchestrator>
     );
   }
 
-  void _jumpToOffline() {
+  Future<void> _jumpToOffline() async {
     if (_navigated) return;
     _navigated = true;
+    await _finalizeFill();
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => OfflineNoticeView(
         rebuilder: (_) => BootOrchestrator(
@@ -309,50 +319,83 @@ class _BootOrchestratorState extends State<BootOrchestrator>
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                children: [
-                  const Spacer(),
-                  // Spinning halo with progress arc
-                  SizedBox(
-                    width: isLandscape ? 56 : 72,
-                    height: isLandscape ? 56 : 72,
-                    child: AnimatedBuilder(
-                      animation: _haloCtrl,
-                      builder: (_, __) => Transform.rotate(
-                        angle: _haloCtrl.value * 6.2831853,
-                        child: CircularProgressIndicator(
-                          value: _progress,
-                          strokeWidth: 4,
-                          backgroundColor:
-                              Colors.white.withValues(alpha: 0.12),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFFFFD466),
+            child: Column(
+              children: [
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.08,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Loading$dots',
+                        style: TextStyle(
+                          color: const Color(0xFFC9A84C),
+                          fontSize: isLandscape ? 18 : 20,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 2,
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black54,
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Horizontal progress bar — fills smoothly while
+                      // gray-flow runs, hits 100% only via _finalizeFill
+                      // right before pushReplacement (per UX spec).
+                      Container(
+                        height: isLandscape ? 12 : 14,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.black.withValues(alpha: 0.5),
+                          border: Border.all(
+                            color: const Color(0xFFC9A84C)
+                                .withValues(alpha: 0.6),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(7),
+                          child: LayoutBuilder(
+                            builder: (ctx, constraints) => Stack(
+                              children: [
+                                AnimatedContainer(
+                                  duration:
+                                      const Duration(milliseconds: 220),
+                                  curve: Curves.easeOut,
+                                  width: constraints.maxWidth * _progress,
+                                  height: double.infinity,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFC9A84C),
+                                        Color(0xFFFFF176),
+                                        Color(0xFFC9A84C),
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFC9A84C)
+                                            .withValues(alpha: 0.8),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Loading$dots',
-                    style: TextStyle(
-                      color: const Color(0xFFFFE7A1),
-                      fontSize: isLandscape ? 16 : 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 3,
-                      shadows: const [
-                        Shadow(
-                          color: Colors.black,
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: isLandscape ? 24 : 56),
-                ],
-              ),
+                ),
+                SizedBox(height: isLandscape ? 20 : 40),
+              ],
             ),
           ),
         ],
