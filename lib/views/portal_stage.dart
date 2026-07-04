@@ -187,13 +187,30 @@ class _PortalStageState extends State<PortalStage>
     if (_routedToOffline) return;
     final ok = await widget.netSensor.hasLink();
     if (ok || !mounted) return;
-    _bounceToOffline();
+    await _bounceToOffline();
   }
 
-  void _bounceToOffline() {
+  Future<void> _bounceToOffline() async {
     if (_routedToOffline || !mounted) return;
     _routedToOffline = true;
-    final pendingUrl = widget.destination;
+
+    // Preserve the URL the user was actually on when the link died,
+    // not the initial destination, so Retry returns to that resource.
+    String pendingUrl = widget.destination;
+    try {
+      final live = await _ctrl.currentUrl();
+      if (live != null && live.isNotEmpty && !_isBlankUrl(live)) {
+        pendingUrl = live;
+      } else if (_lastMainFrameUrl != null && _lastMainFrameUrl!.isNotEmpty) {
+        pendingUrl = _lastMainFrameUrl!;
+      }
+    } catch (_) {
+      if (_lastMainFrameUrl != null && _lastMainFrameUrl!.isNotEmpty) {
+        pendingUrl = _lastMainFrameUrl!;
+      }
+    }
+
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => OfflineNoticeView(
         rebuilder: (_) => PortalStage(
@@ -204,6 +221,11 @@ class _PortalStageState extends State<PortalStage>
         ),
       ),
     ));
+  }
+
+  bool _isBlankUrl(String u) {
+    final s = u.trim().toLowerCase();
+    return s.isEmpty || s == 'about:blank' || s.startsWith('data:text/html');
   }
 
   Future<List<String>> _chooseFiles(FileSelectorParams params) async {
@@ -284,9 +306,8 @@ class _PortalStageState extends State<PortalStage>
       '--safe-top:0px!important;--safe-right:0px!important;' +
       '--safe-bottom:0px!important;--safe-left:0px!important;' +
     '}' +
-    'html,body,#__nuxt,#__layout,#app,#root{' +
-      'padding-top:0!important;padding-left:0!important;' +
-      'padding-right:0!important;margin-top:0!important;' +
+    '.gameview-mobile-header,.app-header{' +
+      'padding-top:0!important;' +
     '}';
 
   function kbOpen(){
